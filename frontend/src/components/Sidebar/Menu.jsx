@@ -25,7 +25,7 @@ const Menu = ({ setSelectedPage, selectedPage }) => {
             Saved Data
           </button>
         </li>
-        <li>
+        {/* <li>
           <button
             onClick={() => setSelectedPage('Testing')}
             className={`block w-full text-left py-2 px-4 rounded ${
@@ -34,7 +34,7 @@ const Menu = ({ setSelectedPage, selectedPage }) => {
           >
             Testing
           </button>
-        </li>
+        </li> */}
       </ul>
     </div>
   );

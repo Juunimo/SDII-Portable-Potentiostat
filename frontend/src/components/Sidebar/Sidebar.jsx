@@ -52,7 +52,7 @@ const Sidebar = ({ setSelectedPage, selectedPage, mode, setMode, setScanData }) 
         </div>
       )}
 
-      <button
+      {/* <button
         onClick={handleStartScan}
         disabled={isLoading}
         className={`bg-green-500 text-white py-2 px-4 rounded hover:bg-green-700 ${
@@ -60,7 +60,7 @@ const Sidebar = ({ setSelectedPage, selectedPage, mode, setMode, setScanData }) 
         }`}
       >
         {isLoading ? 'Scanning...' : 'Start Scan'}
-      </button>
+      </button> */}
     </aside>
   );
 };
