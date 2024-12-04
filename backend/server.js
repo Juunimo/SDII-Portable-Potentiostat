@@ -28,6 +28,30 @@ app.get('/start-scan', async (req, res) => {
   }
 });
 
+// Endpoint to handle EIS scan
+app.get('/start-eis', async (req, res) => {
+  try {
+    // Simulate EIS data (replace this with actual Arduino communication if needed)
+    const eisData = {
+      scanData: [
+        { realImpedance: 100, imaginaryImpedance: 200, frequency: 0.1, magnitude: 223.6, phase: 63.4 },
+        { realImpedance: 150, imaginaryImpedance: 100, frequency: 1, magnitude: 180.3, phase: 33.7 },
+        { realImpedance: 200, imaginaryImpedance: 50, frequency: 10, magnitude: 206.2, phase: 14.0 },
+        { realImpedance: 250, imaginaryImpedance: 25, frequency: 100, magnitude: 251.2, phase: 5.7 },
+        { realImpedance: 300, imaginaryImpedance: 10, frequency: 1000, magnitude: 300.2, phase: 1.9 },
+      ],
+    };
+
+    console.log('EIS data sent:', eisData);
+
+    res.json(eisData); // Send EIS scan data back to the client
+  } catch (error) {
+    console.error('Error during EIS scan:', error);
+    res.status(500).json({ error: 'Failed to start EIS scan' });
+  }
+});
+
+
 app.post('/receive-data', (req, res) => {
     const { data } = req.body;
     console.log('Received data from Arduino:', data);
@@ -46,29 +70,38 @@ const graphSchema = new mongoose.Schema({
 // Create Graph Model
 const Graph = mongoose.model('Graph', graphSchema);
 
+const generateUniqueId = () => {
+  return `id-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+};
+
+
 // Endpoint to save a graph when the user clicks "Save Graph"
 app.post('/save-graph', async (req, res) => {
-  const { data, timestamp } = req.body;
-
   try {
-    const newGraph = new Graph({
-      data: data,
-      timestamp: timestamp || new Date().toISOString(), // Use current time if no timestamp is provided
+    const { data, timestamp } = req.body;
+
+    // Create a new graph document
+    const graph = new Graph({
+      data,
+      timestamp,
     });
 
-    await newGraph.save(); // Save the graph to the database
-    res.status(201).json({ message: 'Graph saved successfully!' });
+    // Save it to MongoDB
+    await graph.save();
+
+    res.json({ message: 'Graph saved successfully!' });
   } catch (error) {
     console.error('Error saving graph:', error);
-    res.status(500).json({ message: 'Failed to save graph data.' });
+    res.status(500).json({ message: 'Failed to save graph.' });
   }
 });
 
 // Endpoint to retrieve all saved graphs
 app.get('/graphs', async (req, res) => {
   try {
-    const graphs = await Graph.find(); // Retrieve all graphs
-    res.status(200).json(graphs); // Send the graphs back to the client
+    const graphs = await Graph.find();
+    console.log('Retrieved graphs:', graphs); // Log retrieved data
+    res.status(200).json(graphs);
   } catch (error) {
     console.error('Error fetching graphs:', error);
     res.status(500).json({ message: 'Failed to retrieve graphs.' });
