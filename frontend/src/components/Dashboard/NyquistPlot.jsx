@@ -1,6 +1,7 @@
 import React from 'react';
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 // Function to interpolate points between two points
 const interpolatePoints = (point1, point2, numPoints) => {
   const interpolated = [];
@@ -15,9 +16,17 @@ const interpolatePoints = (point1, point2, numPoints) => {
 };
 
 // Function to process and interpolate Nyquist data for a single scan
-const processNyquistData = (nyquistData, isHighConcentration) => {
+const processNyquistData = (nyquistData, isHighConcentration, concentration) => {
   if (!nyquistData || nyquistData.length === 0) {
     return [{ real: 0, imaginary: 0 }];
+  }
+
+  // Special case: BUFFER results in a flat line
+  if (concentration === 'BUFFER') {
+    return nyquistData.map((point) => ({
+      real: point.real, // Retain real impedance
+      imaginary: 1, // Flat line at constant imaginary impedance
+    }));
   }
 
   // Sort the data by the real impedance value
@@ -79,6 +88,40 @@ const NyquistPlot = ({ nyquistDataSets = [], concentrations = [] }) => {
     return parseFloat(concentration) >= highConcentrationThreshold;
   };
 
+  const handleSaveGraph = async () => {
+    try {
+      // Capture the entire screen using html2canvas
+      const canvas = await html2canvas(document.body, {
+        scale: 2, // Increase scale for better resolution
+        useCORS: true, // Enable CORS if there are external images
+      });
+  
+      // Convert the canvas to an image
+      const imgData = canvas.toDataURL('image/png');
+  
+      // Create a PDF document
+      const pdf = new jsPDF({
+        orientation: 'portrait', // Adjust to 'landscape' if needed
+        unit: 'px',
+        format: 'a4', // Use A4 size for standard PDFs
+      });
+  
+      // Calculate dimensions to fit the image in the PDF
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+  
+      // Add the image to the PDF
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+  
+      // Save the PDF
+      pdf.save('FullScreenCapture.pdf');
+  
+      console.log('Screen saved as PDF successfully!');
+    } catch (error) {
+      console.error('Error saving screen as PDF:', error);
+    }
+  };
+
   // Filter out invalid data points for logarithmic scale
   const sanitizeData = (dataset) =>
     dataset.filter((point) => point.imaginary > 0); // Keep only positive imaginary values
@@ -113,7 +156,7 @@ const NyquistPlot = ({ nyquistDataSets = [], concentrations = [] }) => {
               <Scatter
                 key={index}
                 name={`Scan ${index + 1}`} // Unique name for each dataset
-                data={sanitizeData(processNyquistData(dataset, isHighConcentration(concentrations[index])))} // Process and filter each dataset
+                data={sanitizeData(processNyquistData(dataset, isHighConcentration(concentrations[index]), concentrations[index]))} // Process and filter each dataset
                 fill={colors[index % colors.length]} // Use colors cyclically
                 line // Connect points with a line
                 shape="circle" // Customize shape if needed
@@ -123,7 +166,12 @@ const NyquistPlot = ({ nyquistDataSets = [], concentrations = [] }) => {
         </ResponsiveContainer>
       ) : (
         <p>No data to display.</p>
-      )}
+      )}<button
+      onClick={handleSaveGraph}
+      className="mt-2 bg-green-500 text-white py-2 px-4 rounded hover:bg-green-700"
+    >
+      Save Graph
+    </button>
     </div>
   );
 };

@@ -1,10 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
-const VoltammogramGraph = ({ scanDataSets, onSaveGraph }) => {
-  const [storedDataSets, setStoredDataSets] = useState({}); // Store processed data for each concentration
+const VoltammogramGraph = ({
+  scanDataSets,
+  onSaveGraph,
+  storedPeakCurrents,
+  setStoredPeakCurrents,
+  storedDataSets,
+  setStoredDataSets,
+}) => {   // Store processed data for each concentration
   const [isLoading, setIsLoading] = useState(false);
   const [timer, setTimer] = useState(0); // Timer for the scan process
+
 
   useEffect(() => {
     // Start the timer whenever the component is rendered with new scan data
@@ -28,58 +37,101 @@ const VoltammogramGraph = ({ scanDataSets, onSaveGraph }) => {
   }, [scanDataSets]);
 
   useEffect(() => {
-    // Process new scan data and store it if not already stored
     scanDataSets.forEach((scanData) => {
-      const { concentration } = scanData; // Assuming scanData has a `concentration` property
+      const { concentration } = scanData;
 
+      // If this concentration is already processed, skip it
       if (!storedDataSets[concentration]) {
-        let peakCurrent = 0;
+        // Check if a peak current is already stored
+        let peakCurrent = storedPeakCurrents[concentration];
 
-        // Determine peak current range based on concentration
-        if (concentration === '500 µM') {
-          peakCurrent = Math.random() * (100e-9 - 90e-9) + 90e-9; // Random peak between 10 nA and 100 nA
-        } else if (concentration === '400 µM') {
-          peakCurrent = Math.random() * (80e-9 - 60e-9) + 60e-9; // Random peak between 8 nA and 80 nA
-        } else if (concentration === '250 µM') {
-          peakCurrent = Math.random() * (50e-9 - 30e-9) + 30e-9; // Random peak between 5 nA and 50 nA
-        } else if (concentration === '100 µM') {
-          peakCurrent = Math.random() * (20e-9 - 3e-9) + 3e-9; // Random peak between 5 nA and 50 nA
-        } else if (concentration === '10 µM') {
-          peakCurrent = Math.random() * (2e-9 - 1e-9) + 1e-9; // Random peak between 5 nA and 50 nA
-        } else if (concentration === '1 µM') {
-          peakCurrent = Math.random() * (1e-9 - 0.1e-9) + 0.1e-9; // Random peak between 0.1 nA and 1 nA
+        // If no peak current exists, generate one and store it
+        if (peakCurrent === undefined) {
+          if (concentration === '500 µM') {
+            peakCurrent = Math.random() * (100e-9 - 90e-9) + 90e-9;
+          } else if (concentration === '400 µM') {
+            peakCurrent = Math.random() * (80e-9 - 60e-9) + 60e-9;
+          } else if (concentration === '250 µM') {
+            peakCurrent = Math.random() * (50e-9 - 30e-9) + 30e-9;
+          } else if (concentration === '100 µM') {
+            peakCurrent = Math.random() * (20e-9 - 3e-9) + 3e-9;
+          } else if (concentration === '10 µM') {
+            peakCurrent = Math.random() * (2e-9 - 1e-9) + 1e-9;
+          } else if (concentration === '1 µM') {
+            peakCurrent = Math.random() * (1e-9 - 0.1e-9) + 0.1e-9;
+          } else if (concentration === 'BUFFER') {
+            peakCurrent = 0; // Flat line for BUFFER
+          }
+
+          // Store the generated peak current
+          setStoredPeakCurrents((prev) => ({
+            ...prev,
+            [concentration]: peakCurrent,
+          }));
         }
-        
 
+        // Process the dataset
         const newDataSet = scanData.data.map((dataPoint) => ({
           ...dataPoint,
-          potential: dataPoint.potential + 0.1, // Offset potential if necessary
-          differentialCurrent: dataPoint.potential === 0.6 ? peakCurrent : 0, // Peak at 0.6 V, zero elsewhere
+          potential: dataPoint.potential + 0.1,
+          differentialCurrent: dataPoint.potential === 0.6 ? peakCurrent : 0,
         }));
 
-        // Add the new dataset to storedDataSets
+        // Update stored datasets in the parent
         setStoredDataSets((prev) => ({
           ...prev,
           [concentration]: newDataSet,
         }));
       }
     });
-  }, [scanDataSets]); // Only process when scanDataSets changes
+  }, [scanDataSets, storedDataSets, setStoredDataSets, storedPeakCurrents, setStoredPeakCurrents]);
+// Re-run when scanDataSets or storedPeakCurrents change
 
   const processedDataSets = Object.values(storedDataSets); // Get all stored datasets for rendering
 
-  const handleSaveGraph = () => {
-    if (processedDataSets.length > 0) {
-      onSaveGraph(processedDataSets[0]); // Save the first dataset
-    } else {
-      alert('No graph data to save!');
+  const handleSaveGraph = async () => {
+    try {
+      // Capture the entire screen using html2canvas
+      const canvas = await html2canvas(document.body, {
+        scale: 2, // Increase scale for better resolution
+        useCORS: true, // Enable CORS if there are external images
+      });
+  
+      // Convert the canvas to an image
+      const imgData = canvas.toDataURL('image/png');
+  
+      // Create a PDF document
+      const pdf = new jsPDF({
+        orientation: 'portrait', // Adjust to 'landscape' if needed
+        unit: 'px',
+        format: 'a4', // Use A4 size for standard PDFs
+      });
+  
+      // Calculate dimensions to fit the image in the PDF
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+  
+      // Add the image to the PDF
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+  
+      // Save the PDF
+      pdf.save('FullScreenCapture.pdf');
+  
+      console.log('Screen saved as PDF successfully!');
+    } catch (error) {
+      console.error('Error saving screen as PDF:', error);
     }
   };
-
+  
   const colors = [
     '#FF0000', '#0000FF', '#FFA500', '#008000', '#800080', '#00FFFF',
     '#FFC0CB', '#FFD700', '#A52A2A', '#4B0082', '#FF4500', '#2E8B57',
   ];
+
+  useEffect(() => {
+    console.log('Stored Peak Currents:', storedPeakCurrents);
+  }, [storedPeakCurrents]);
+  
 
   return (
     <div

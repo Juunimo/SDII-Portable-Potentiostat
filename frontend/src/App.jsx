@@ -9,17 +9,23 @@ import SavedDataList from './components/Database/SavedDataList';
 import Testing from './components/Testing/Testing';
 
 
-
 const arduinoIP = '172.20.10.9'; //PCB
 //const arduinoIP = '172.20.10.6'; //EXTRA
 
 
 function App() {
   const [selectedPage, setSelectedPage] = useState('Dashboard');
+  const [dpvScanDataSets, setDpvScanDataSets] = useState([]);
+  const [eisNyquistData, setEisNyquistData] = useState([]);
+  const [eisBodeData, setEisBodeData] = useState([]);
+
+  const [storedPeakCurrents, setStoredPeakCurrents] = useState({});
+
+
   const [mode, setMode] = useState('DPV');
   const [sampleOption, setSampleOption] = useState('C'); // New sample option
   const [concentration, setConcentration] = useState('500 µM'); // Default concentration
-  const [availableConcentrations, setAvailableConcentrations] = useState(['500 µM', '400 µM', '250 µM', '100 µM', '10 µM', '1 µM']); // Updated variable name
+  const [availableConcentrations, setAvailableConcentrations] = useState(['500 µM', '400 µM', '250 µM', '100 µM', '10 µM', '1 µM', 'BUFFER']); // Updated variable name
   const [newConcentration, setNewConcentration] = useState(''); // Input for new concentration
   const [scanDataSets, setScanDataSets] = useState([]); // Store multiple scan datasets for overlay
   const [savedGraphs, setSavedGraphs] = useState([]);
@@ -27,6 +33,8 @@ function App() {
   const [bodeData, setBodeData] = useState([]);
   const [timer, setTimer] = useState(0); // Timer in seconds
   const [nyquistDataSets, setNyquistDataSets] = useState([]);
+  const [storedDataSets, setStoredDataSets] = useState({});
+
 
 
   ///////////////////////////////////////////////////////////////////////
@@ -68,12 +76,12 @@ function App() {
             ...dataPoint,
             differentialCurrent: 0, // Set current to zero for flat line
           }));
-          setScanDataSets([
+          setDpvScanDataSets([
             ...scanDataSets,
             { data: flatLineData, concentration }, // Include concentration with flat line data
           ]);
         } else {
-          setScanDataSets([
+          setDpvScanDataSets([
             ...scanDataSets,
             { data: data.scanData, concentration }, // Include concentration with scan data
           ]);
@@ -177,7 +185,7 @@ function App() {
         }
 
         // Append the new scan data to nyquistDataSets
-        setNyquistDataSets((prevDataSets) => [
+        setEisNyquistData((prevDataSets) => [
           ...prevDataSets,
           data.scanData.map((item) => ({
             real: parseFloat(item.realImpedance),
@@ -185,7 +193,7 @@ function App() {
           })),
         ]);
 
-        setBodeData(
+        setEisBodeData(
           data.scanData.map((item) => ({
             frequency: parseFloat(item.frequency),
             magnitude: parseFloat(item.magnitude),
@@ -322,16 +330,21 @@ function App() {
             {mode === 'DPV' ? (
               <>
                 <VoltammogramGraph
-                  scanDataSets={scanDataSets}
+                  scanDataSets={dpvScanDataSets}
                   onSaveGraph={saveCurrentGraph}
-                  selectedConcentration={concentration} // Pass the selected concentration
+                  selectedConcentration={concentration}
+                  storedPeakCurrents={storedPeakCurrents}
+                  setStoredPeakCurrents={setStoredPeakCurrents}
+                  storedDataSets={storedDataSets}
+                  setStoredDataSets={setStoredDataSets}
                 />
                 <CalibrationCurveGraph peakCurrent={peakCurrent} />
               </>
             ) : (
               <>
-                <NyquistPlot nyquistDataSets={nyquistDataSets} />
-                <BodePlot bodeData={bodeData} arduinoIP={arduinoIP} />
+                <NyquistPlot nyquistDataSets={eisNyquistData} selectedConcentration={concentration}
+                />
+                <BodePlot bodeData={eisBodeData} arduinoIP={arduinoIP} />
               </>
             )}
           </>
